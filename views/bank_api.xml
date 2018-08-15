@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+        <record model="ir.ui.view" id="bank_api_form_view">
+            <field name="name">bank_api.form</field>
+            <field name="model">account.bank.api</field>
+            <field name="arch" type="xml">
+                <form string="Bank Api Form">
+                <header>
+                    <!-- <button name="button_draft" states="approve" string="Set to Draft" type="object" /> -->
+                    <button name="button_confirm" states="draft" string="Confirm" type="object" class="oe_highlight"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirm"/>           
+                </header>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="bank_account_id"/>
+                            <field name="corporate_id"/>
+                            <field name="url"/>
+                        </group>
+                        <group>
+                            <field name="api_key"/>
+                            <field name="api_secret_key"/>
+                            <field name="client_key"/>
+                            <field name="client_secret_key"/>
+                            <field name="journal_id"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record model="ir.ui.view" id="bank_api_search_view">
+            <field name="name">bank_api.search</field>
+            <field name="model">account.bank.api</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="name"/>
+                    <field name="bank_account_id"/>
+                    <field name="corporate_id"/>
+                </search>
+            </field>
+        </record>
+
+        <record model="ir.ui.view" id="bank_api_tree_view">
+            <field name="name">bank_api.tree</field>
+            <field name="model">account.bank.api</field>
+            <field name="arch" type="xml">
+                <tree string="Bank Api Tree">
+                    <field name="name"/>
+                    <field name="bank_account_id"/>
+                    <field name="corporate_id"/>
+                </tree>
+            </field>
+        </record>
+
+        <record model="ir.actions.act_window" id="bank_api_list_action">
+            <field name="name">Bank Api</field>
+            <field name="res_model">account.bank.api</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="oe_view_nocontent_create">Create the first bank api
+                </p>
+            </field>
+        </record>
+
+        <menuitem id="main_account_bank_api_menu" name="Bank Api"/>
+        <menuitem id="account_bank_api_menu" name="Bank Api"
+                  parent="main_account_bank_api_menu"/>
+        <menuitem id="bank_api_menu" name="Bank Api" parent="account_bank_api_menu"
+                  action="bank_api_list_action"/>
+
+</odoo>
