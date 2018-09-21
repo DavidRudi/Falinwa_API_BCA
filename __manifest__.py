@@ -3,22 +3,24 @@
 
 
 {
-    'name': 'BCA Bank Statement',
+    'name': 'Bank Api',
     'version': '0.1',
     'category': 'Accounting',
     'sequence': 1,
-    'summary': 'Get BCA Bank Statement',
+    'summary': 'Import Bank Statement from API',
     'description': """
 
 ==================================================
 
 
        """,
-    'website': 'https://www.falinwa.com/web/bca_statement',
+    'website': 'https://www.falinwa.com/web/bank_api',
     'depends': ['base', 'account'],
     'data': [
-        'data/bca_data.xml'
-        # 'views/bca_bank_statement.xml',
+        # 'data/bank_api_data.xml',
+        'views/bank_api.xml',
+        'views/account_journal_bank_api.xml',
+        'wizard/bank_api_wizard.xml',
     ],
     'demo': [
         'demo/demo.xml'

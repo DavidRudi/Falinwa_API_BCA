@@ -1,6 +1,7 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from dateutil.relativedelta import relativedelta
+import hmac
 import datetime
 import json
 import hashlib
@@ -17,15 +18,15 @@ class AccountBankApi(models.Model):
 
     name = fields.Char(string="API Name", required=True)    
 
-    bank_account_id = fields.Many2one("res.partner.bank", string="Bank Account", required=True)
+    # bank_account_id = fields.Many2one("res.partner.bank", string="Bank Account", required=True)
     corporate_id = fields.Char(string="Corporate ID", required=True)
-    account_number = fields.Char(related="bank_account_id.acc_number", string="Account Number")
+    # account_number = fields.Char(related="bank_account_id.acc_number", string="Account Number")
     api_key = fields.Char(string="API Key", required=True, help="API key from provider e.g: BCA")
     api_secret_key = fields.Char(string="API Secret Key", required=True)
     client_key = fields.Char(string="Client Key", required=True)
     client_secret_key = fields.Char(string="Client Secret Key", required=True)
     url = fields.Char(string="Server Url", required=True)
-    journal_id = fields.Many2one('account.journal', string='Journal', required=True, states={'confirm': [('readonly', True)]})
+    # journal_id = fields.Many2one('account.journal', string='Journal', required=True, states={'confirm': [('readonly', True)]})
 
     state = fields.Selection([
         ('draft', 'Draft'),
@@ -40,20 +41,20 @@ class AccountBankApi(models.Model):
     def confirm_api(self):
         # Get bca token
         bca_token = self.get_token_bca()
-            
-        # Set range of date and timestamp for signature and bank statement
-        range_date = self.get_start_and_end_date()
-        start_date = range_date['start_date']
-        end_date =  range_date['end_date']
-        time_stamp = self.get_time_stamp()
 
-        # Get bca signature
-        bca_signature = self.get_signature_bca(bca_token,time_stamp,start_date,end_date)
+        # # Set range of date and timestamp for signature and bank statement
+        # range_date = self.get_start_and_end_date()
+        # start_date = range_date['start_date']
+        # end_date =  range_date['end_date']
+        # time_stamp = self.get_time_stamp()
 
-        # Get bca bank statement
-        data = self.get_bank_statement_bca(bca_signature,bca_token,time_stamp,start_date,end_date)
+        # # Get bca signature
+        # bca_signature = self.get_signature_bca(bca_token,time_stamp,start_date,end_date)
 
-        if not data:
+        # # Get bca bank statement
+        # data = self.get_bank_statement_bca(bca_signature,bca_token,time_stamp,start_date,end_date)
+
+        if not bca_token:
             return False
         else:
             return True
@@ -61,36 +62,39 @@ class AccountBankApi(models.Model):
     @api.model
     def bank_api_import_statement(self):
 
-        confirmed_bank_api = self.env['account.bank.api'].search([['state', '=', 'confirm']])
-
+        # confirmed_bank_api = self.env['account.bank.api'].search([['state', '=', 'confirm']])
+        _logger.info('Tes')
         # Check bank account and get statement (Loop)
-        for bank_api in confirmed_bank_api :
-            bic = bank_api.bank_account_id.bank_id.bic or False
-            if not bic:
-                raise UserError(_('Please configure bank BIC'))
-            elif bic == 'CENAIDJA' :
-                bank_api.bca_procedure_get_bank_statement()
-            else:
-                raise UserError(_('Does not implemented yet'))
+            # for bank_api in confirmed_bank_api :
+            #     bic = bank_api.bank_account_id.bank_id.bic or False
+            #     if not bic:
+            #         raise UserError(_('Please configure bank BIC'))
+            #     elif bic == 'CENAIDJA' :
+            #         bank_api.bca_procedure_get_bank_statement()
+            #     else:
+            #         raise UserError(_('Does not implemented yet'))
 
-    def bca_procedure_get_bank_statement(self):        
+    @api.multi
+    def bca_procedure_get_bank_statement(self,journal_id,account_number,start_date=False,end_date=False):
         # Get bca token
         bca_token = self.get_token_bca()
             
         # Set range of date and timestamp for signature and bank statement
-        range_date = self.get_start_and_end_date()
-        start_date = range_date['start_date']
-        end_date =  range_date['end_date']
+        if not (start_date and end_date):
+            range_date = self.get_start_and_end_date()
+            start_date = range_date['start_date']
+            end_date =  range_date['end_date']
         time_stamp = self.get_time_stamp()
 
         # Get bca signature
-        bca_signature = self.get_signature_bca(bca_token,time_stamp,start_date,end_date)
+        bca_signature = self.create_bca_signature(bca_token,time_stamp,account_number,start_date,end_date)
+        # bca_signature = self.get_signature_bca(bca_token,time_stamp,account_number,start_date,end_date)
 
         # Get bca bank statement
-        data = self.get_bank_statement_bca(bca_signature,bca_token,time_stamp,start_date,end_date)
+        data = self.get_bank_statement_bca(bca_signature,bca_token,time_stamp,account_number,start_date,end_date)
 
         # Save Record
-        self.save_bank_statement(data)
+        self.save_bank_statement(data,journal_id,start_date,end_date)
 
     def get_token_bca(self):
         parameter_token_bca = {'bca_url':self.url,
@@ -117,10 +121,10 @@ class AccountBankApi(models.Model):
         else:
             return data['access_token']
 
-    def get_signature_bca(self,bca_token,time_stamp,start_date,end_date):
+    def get_signature_bca(self,bca_token,time_stamp,account_number,start_date,end_date):
         parameter_signature = {'bca_url':self.url,
                                'corporate_id':self.corporate_id,
-                               'account_number':self.account_number,
+                               'account_number':account_number,
                                'start_date':start_date,
                                'end_date':end_date,
                                'bca_token':bca_token,
@@ -139,17 +143,16 @@ class AccountBankApi(models.Model):
 
         return self.parse_bca_signature(r.text)
 
-    def get_bank_statement_bca(self,bca_signature,bca_token,time_stamp,start_date,end_date):
+    def get_bank_statement_bca(self,bca_signature,bca_token,time_stamp,account_number,start_date,end_date):
         parameter_statement_bca = {'bca_url':self.url,
                                    'corporate_id':self.corporate_id,
-                                   'account_number':self.account_number,
+                                   'account_number':account_number,
                                    'start_date':start_date,
                                    'end_date':end_date,
                                    'bca_token':bca_token,
                                    'time_stamp':time_stamp, 
                                    'bca_signature':bca_signature, 
                                    'api_key':self.api_key}
-
 
         URL = ''.join([parameter_statement_bca['bca_url'],'/banking/v3/corporates/',parameter_statement_bca['corporate_id'],
               '/accounts/',parameter_statement_bca['account_number'],'/statements?StartDate=',
@@ -229,12 +232,12 @@ class AccountBankApi(models.Model):
 
         return parsed_data
 
-    def save_bank_statement(self,data):
+    def save_bank_statement(self,data,journal_id,start_date,end_date):
         data_detail = self.parse_bca_statement_data(data)
         AccountBankStatement = self.env['account.bank.statement']
-        AccountBankStatement.create({'name':'BCA Import',
+        AccountBankStatement.create({'name': ''.join(['BCA Import ',start_date.replace('-','/'),' - ',end_date.replace('-','/')]),
             'state':'open',
-            'journal_id':self.journal_id.id,
+            'journal_id':journal_id,
             'date':data['StartDate'],
             'currency_id':data['Currency'],
             'balance_start':data['StartBalance']})
@@ -259,3 +262,10 @@ class AccountBankApi(models.Model):
             account_bank_statement_line = self.env['account.bank.statement.line'].create(account_bank_statement_line_vals)
 
         last_stmnt_id.write({'balance_end_real':last_stmnt_id.balance_end})
+
+    def create_bca_signature(self,bca_token,time_stamp,account_number,start_date,end_date):
+        StringToSign = ''.join(['GET:/banking/v3/corporates/',self.corporate_id,
+              '/accounts/',account_number,'/statements?EndDate=',end_date,'&StartDate=',
+              start_date,':',bca_token,':e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855:',time_stamp])
+        bca_signature = hmac.new(self.api_secret_key.encode(),StringToSign.encode(),hashlib.sha256).hexdigest()
+        return bca_signature
